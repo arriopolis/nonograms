@@ -1,0 +1,167 @@
+<html>
+  <head>
+    <title>Nonogram solver</title>
+    <style>
+      table {
+        border-spacing: 0;
+      }
+      td {
+        height : 20px;
+        width : 20px;
+        border-right : 1px solid black;
+        border-bottom : 1px solid black;
+      }
+      tr:first-child td {
+        border-top : 2px solid black;
+        height : 80px;
+        font-family : Courier New;
+        vertical-align : bottom;
+      }
+      td:first-child {
+        border-left : 2px solid black;
+        width : 80px;
+        font-family : Courier New;
+        text-align : right;
+        white-space : nowrap;
+      }
+      tr:nth-child(5n+1) td {
+        border-bottom : 2px solid black;
+      }
+      td:nth-child(5n+1) {
+        border-right : 2px solid black;
+      }
+      tr:last-child td {
+        border-bottom : 2px solid black;
+      }
+      td:last-child {
+        border-right : 2px solid black;
+      }
+      tr:first-child td:first-child {
+        border-top : 0;
+        border-left : 0;
+      }
+      td.active:hover {
+        cursor : pointer;
+        background-color : lightgray;
+      }
+      #status {
+        font-weight : bold;
+      }
+    </style>
+    <script src = "solver.js"></script>
+    <script>
+      function solve_wrapper() {
+        var tbl = document.getElementById('grid').firstChild
+        var height = tbl.rows.length - 1
+        var width = tbl.rows[0].cells.length - 1
+
+        var hor_blocks = Array()
+        for (var y = 1; y <= height; y++) {
+          hor_blocks.push(tbl.rows[y].cells[0].innerHTML.split(' ').map(z=>+z))
+        }
+
+        var ver_blocks = Array()
+        for (var x = 1; x <= width; x++) {
+          ver_blocks.push(tbl.rows[0].cells[x].innerHTML.split('\n').map(z=>+z))
+        }
+
+        try {
+          var res = solve_puzzle(hor_blocks, ver_blocks)
+        } catch(e) {
+          document.getElementById('status').style.color = 'red'
+          document.getElementById('status').innerHTML = e
+          return
+        }
+
+        for (const [i,row] of res.entries()) {
+          for (const [j,c] of row.entries()) {
+            if (c == 1) tbl.rows[i+1].cells[j+1].style.background = 'gray'
+          }
+        }
+
+        document.getElementById('status').style.color = 'green'
+        document.getElementById('status').innerHTML = 'Found the solution!'
+      }
+
+      function process_input(x,y) {
+        var tbl = document.getElementById('grid').firstChild
+        var cell = tbl.rows[y].cells[x]
+        var nums = cell.firstChild.value
+        cell.innerHTML = nums
+        if (x == 0) {
+          cell.setAttribute('onclick', 'input_row(' + y + ')')
+        } else {
+          cell.setAttribute('onclick', 'input_column(' + x + ')')
+        }
+      }
+
+      function input_row(y) {
+        var tbl = document.getElementById('grid').firstChild
+        var cell = tbl.rows[y].cells[0]
+        var nums = cell.innerHTML
+        cell.innerHTML = ''
+        var input = document.createElement('textarea')
+        input.setAttribute('rows', 1)
+        input.setAttribute('cols', 9)
+        input.setAttribute('onblur', 'process_input(0,' + y + ')')
+        input.value = nums
+        cell.removeAttribute('onclick')
+        cell.appendChild(input)
+        input.focus()
+      }
+
+      function input_column(x) {
+        var tbl = document.getElementById('grid').firstChild
+        var cell = tbl.rows[0].cells[x]
+        var nums = cell.innerHTML
+        cell.innerHTML = ''
+        var input = document.createElement('textarea')
+        input.setAttribute('rows', 5)
+        input.setAttribute('cols', 1)
+        input.setAttribute('onblur', 'process_input(' + x + ',0)')
+        input.value = nums
+        cell.removeAttribute('onclick')
+        cell.appendChild(input)
+        input.focus()
+      }
+
+      function generate_grid() {
+        var height = parseInt(document.getElementById('height').value)
+        var width = parseInt(document.getElementById('width').value)
+
+        var tbl = document.createElement('table')
+        for (var y = 0; y < height+1; y++) {
+          var row = tbl.insertRow()
+          for (var x = 0; x < width+1; x++) {
+            var cell = row.insertCell()
+            if (x == 0 && y > 0) {
+              cell.classList.add('active')
+              cell.setAttribute('onclick', 'input_row(' + y + ')')
+            } else if (y == 0 && x > 0) {
+              cell.classList.add('active')
+              cell.setAttribute('onclick', 'input_column(' + x + ')')
+            }
+          }
+        }
+        document.getElementById('grid').innerHTML = ''
+        document.getElementById('grid').appendChild(tbl)
+      }
+    </script>
+  </head>
+  <body>
+    <center>
+      <h1>Nonogram solver</h1>
+      <p>
+        <input id = 'height' placeholder = 'Height'/>
+        <input id = 'width' placeholder = 'Width'/>
+        <button onclick = 'generate_grid()'>Generate grid</button>
+        <button onclick = 'solve_wrapper()'>Solve</button>
+      </p>
+      <hr/>
+      <div id = 'grid'>
+        <p><i>Enter the dimensions and press "Generate grid"!</i></p>
+      </div>
+      <div id = 'status'></div>
+    </center>
+  </body>
+</html>

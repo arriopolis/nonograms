@@ -1,3 +1,5 @@
+import itertools as it
+
 def gen_left_bounds(seg, blocks, start = 0):
     i = start
     for b in blocks:
@@ -158,6 +160,7 @@ def solve(hor_blocks, ver_blocks, state = None):
             # Transpose the puzzle
             state = [[state[j][i] for j in range(h)] for i in range(w)]
             hor_blocks, ver_blocks = ver_blocks, hor_blocks
+            h,w = w,h
 
         # Check if we are done
         if not any(c == -1 for r in state for c in r): return state
@@ -165,9 +168,8 @@ def solve(hor_blocks, ver_blocks, state = None):
     # If we have not managed to solve it yet, make a guess in an empty square
     # This piece can probably be improved by heuristics,
     # but in worst-case complexity it's not clear whether this can be easily improved.
-    for i in range(h):
-        for j in range(w):
-            if state[i][j] == -1: break
+    for i,j in it.product(range(h),range(w)):
+        if state[i][j] == -1: break
 
     # Try filling in a 0
     new_state = [s.copy() for s in state]
@@ -181,7 +183,7 @@ def solve(hor_blocks, ver_blocks, state = None):
 
     # Relay the result
     if res0 is False and res1 is False: return False
-    elif not (res0 is False) and not (res1 is False): raise ValueError("Multiple solutions exist.")
+    elif not (res0 is False) and not (res1 is False) and tuple(map(tuple,res0)) != tuple(map(tuple,res1)): raise ValueError("Multiple solutions exist.")
     elif res0 is False: return res1
     else: return res0
 
