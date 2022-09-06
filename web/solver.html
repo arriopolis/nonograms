@@ -1,68 +1,267 @@
 <html>
-  <head>
-    <title>Nonogram solver</title>
-    <style>
-      table {
-        border-spacing: 0;
+<head>
+  <title>Nonogram solver</title>
+  <style>
+    table {
+      border-spacing: 0;
+    }
+    table tr td {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    table tr td.label:hover, table tr td.inside:hover, table tr td.button:hover {
+      background-color: lightgray;
+      cursor: pointer;
+    }
+
+    #status {
+      font-weight : bold;
+    }
+  </style>
+  <script src = "solver.js"></script>
+  <script>
+    function keydown(e) {
+      if (e.code == 'ArrowRight' || e.code == 'ArrowLeft' || e.code == 'ArrowUp' || e.code == 'ArrowDown' || e.code == 'Enter' || e.code == 'Escape') {
+        var tbl = document.getElementById('grid')
+        if (tbl != null) {
+          if (e.code == 'Escape') unselect_cell()
+          else if (tbl.selected_row === undefined || tbl.selected_column === undefined) {
+            select_cell(1+tbl.top_rows, 1)
+          } else {
+            var cur_row = tbl.selected_row
+            var cur_col = tbl.selected_column
+            var ox = 0, oy = 0
+
+            if (e.code == 'ArrowRight') {ox = 1; oy = 0;}
+            else if (e.code == 'ArrowLeft') {ox = -1; oy = 0;}
+            else if (e.code == 'ArrowDown' || e.code == 'Enter') {ox = 0; oy = 1;}
+            else if (e.code == 'ArrowUp') {ox = 0; oy = -1;}
+
+            if (cur_row == 1 + tbl.top_rows && oy == 1) {
+              ox -= 1
+            } else if (cur_row == 1 + tbl.top_rows + 1 && oy == -1) {
+              ox += 1
+            }
+
+            var y = cur_row + oy
+            var x = cur_col + ox
+
+            if (0 <= y && y < tbl.rows.length) {
+              if (0 <= x && x < tbl.rows[y].cells.length) {
+                if (tbl.rows[y].cells[x].className == 'label' || tbl.rows[y].cells[x].className == 'inside') {
+                  select_cell(y, x)
+                }
+              }
+            }
+          }
+          e.preventDefault()
+        }
       }
-      td {
-        height : 20px;
-        width : 20px;
-        border-right : 1px solid black;
-        border-bottom : 1px solid black;
+    }
+
+    function click(e) {
+      if (e.target.closest('table') !== null) {
+        var cell = e.target.closest('td')
+        var x = cell.cellIndex
+        var y = cell.parentNode.rowIndex
+        var tbl = document.getElementById('grid')
+        if (tbl.selected_column !== undefined && tbl.selected_row !== undefined && x == tbl.selected_column && y == tbl.selected_row) return true;
+        if (tbl.rows[y].cells[x].className == 'label' || tbl.rows[y].cells[x].className == 'inside') {
+          select_cell(y, x)
+        }
+      } else {
+        unselect_cell()
       }
-      tr:first-child td {
-        border-top : 2px solid black;
-        height : 80px;
-        font-family : Courier New;
-        vertical-align : bottom;
+      return false
+    }
+
+    function add_row() {
+      unselect_cell()
+      var tbl = document.getElementById('grid')
+      var row = tbl.insertRow(1);
+      for (var x = 0; x < 1 + tbl.left_columns; x++) {
+        row.insertCell()
       }
-      td:first-child {
-        border-left : 2px solid black;
-        width : 80px;
-        font-family : Courier New;
-        text-align : right;
-        white-space : nowrap;
+      for (var x = 0; x < tbl.grid_width; x++) {
+        var cell = row.insertCell()
+        cell.className = 'label'
+        cell.style.borderLeft = (x%5 == 0 ? '3px solid black' : '')
+        cell.style.borderRight = (x == tbl.grid_width-1 ? '3px solid black' : (x%5 == 4 ? '' : '1px solid black'))
+        cell.style.borderBottom = '1px solid black'
+        cell.style.borderTop = '3px solid black'
+        cell.style.height = '24px'
       }
-      tr:nth-child(5n+1) td {
-        border-bottom : 2px solid black;
+      for (var x = 0; x < tbl.grid_width; x++) {
+        tbl.rows[2].cells[1+tbl.left_columns+x].style.borderTop = ''
       }
-      td:nth-child(5n+1) {
-        border-right : 2px solid black;
+
+      tbl.top_rows++
+    }
+
+    function add_column() {
+      unselect_cell()
+      var tbl = document.getElementById('grid')
+
+      for (var y = 0; y < 1 + tbl.top_rows; y++) {
+        tbl.rows[y].insertCell(0)
       }
-      tr:last-child td {
-        border-bottom : 2px solid black;
+      for (var y = 0; y < tbl.grid_height; y++) {
+        var row = tbl.rows[1+tbl.top_rows+y]
+        var cell = row.insertCell((y==0 ? 1 : 0))
+        cell.className = 'label'
+        cell.style.borderLeft = '3px solid black'
+        cell.style.borderRight = '1px solid black'
+        cell.style.borderTop = (y%5 == 0 ? '3px solid black' : '')
+        cell.style.borderBottom = (y == tbl.grid_height-1 ? '3px solid black' : (y%5 == 4 ? '' : '1px solid black'))
+        cell.style.height = (y == tbl.grid_height-1 && y%5 == 0 ? '26px' : (y == tbl.grid_height-1 ? '23px' : (y%5 == 0 ? '24px' : (y%5 == 4 ? '20px' : '21px'))))
+        tbl.rows[1+tbl.top_rows+y].cells[(y==0 ? 2 : 1)].style.borderLeft = ''
       }
-      td:last-child {
-        border-right : 2px solid black;
+
+      tbl.left_columns++
+    }
+
+    function unselect_cell() {
+      var tbl = document.getElementById('grid')
+      if (tbl !== null) {
+        if (tbl.selected_column !== undefined && tbl.selected_row !== undefined) {
+          var cell = tbl.rows[tbl.selected_row].cells[tbl.selected_column]
+          cell.innerHTML = (cell.firstChild !== null ? cell.firstChild.value : '')
+          cell.style.background = ''
+        }
+        tbl.selected_column = undefined
+        tbl.selected_row = undefined
       }
-      tr:first-child td:first-child {
-        border-top : 0;
-        border-left : 0;
+    }
+
+    function select_cell(y,x) {
+      unselect_cell()
+
+      var tbl = document.getElementById('grid')
+      tbl.selected_row = y
+      tbl.selected_column = x
+
+      if (tbl.rows[y].cells[x].className == 'label') {
+        var cell = tbl.rows[y].cells[x]
+        var txt = cell.innerHTML
+        cell.innerHTML = ''
+
+        var input = document.createElement('textarea')
+        input.setAttribute('rows', 1)
+        input.setAttribute('cols', 1)
+        input.value = txt
+        cell.appendChild(input)
+        input.focus()
+      } else {
+        tbl.rows[y].cells[x].style.background = 'lightblue'
       }
-      td.active:hover {
-        cursor : pointer;
-        background-color : lightgray;
+    }
+
+    function generate_grid() {
+      var height = parseInt(document.getElementById('height').value)
+      var width = parseInt(document.getElementById('width').value)
+
+      var tbl = document.createElement('table')
+      tbl.id = 'grid'
+
+      tbl.top_rows = Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4))
+      tbl.left_columns = Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4))
+      tbl.grid_width = width
+      tbl.grid_height = height
+
+      var row = tbl.insertRow()
+      for (var x = 0; x < 1 + tbl.left_columns; x++) {
+        var cell = row.insertCell()
       }
-      #status {
-        font-weight : bold;
+      var cell = row.insertCell();
+      cell.setAttribute('colspan', width)
+      cell.innerHTML = 'Add extra space'
+      cell.className = 'button'
+      cell.setAttribute('onclick', 'add_row()')
+
+      for (var y = 0; y < tbl.top_rows; y++) {
+        var row = tbl.insertRow()
+        for (var x = 0; x < 1 + tbl.left_columns; x++) {
+          row.insertCell()
+        }
+        for (var x = 0; x < width; x++) {
+          var cell = row.insertCell()
+          cell.className = 'label'
+          cell.style.borderTop = (y == 0 ? '3px solid black' : '')
+          cell.style.borderBottom = (y == tbl.top_rows-1 ? '' : '1px solid black')
+          cell.style.borderLeft = (x%5 == 0 ? '3px solid black' : '')
+          cell.style.borderRight = (x == width-1 ? '3px solid black' : (x%5 == 4 ? '' : '1px solid black'))
+          cell.style.height = (y == 0 ? '24px' : (y == tbl.top_rows-1 ? '20px' : '21px'))
+        }
       }
-    </style>
-    <script src = "solver.js"></script>
-    <script>
-      function solve_wrapper() {
-        var tbl = document.getElementById('grid').firstChild
-        var height = tbl.rows.length - 1
-        var width = tbl.rows[0].cells.length - 1
+
+      for (var y = 0; y < height; y++) {
+        var row = tbl.insertRow()
+        if (y == 0) {
+          var cell = row.insertCell()
+          cell.setAttribute('rowspan', height)
+          cell.innerHTML = 'Add extra space'
+          cell.style.writingMode = 'vertical-lr'
+          cell.className = 'button'
+          cell.setAttribute('onclick', 'add_column()')
+        }
+        for (var x = 0; x < tbl.left_columns; x++) {
+          var cell = row.insertCell()
+          cell.className = 'label'
+          cell.style.borderTop = (y%5 == 0 ? '3px solid black' : '')
+          cell.style.borderBottom = (y == height-1 ? '3px solid black' : (y%5 == 4 ? '' : '1px solid black'))
+          cell.style.borderLeft = (x == 0 ? '3px solid black' : '')
+          cell.style.borderRight = (x == tbl.left_columns-1 ? '' : '1px solid black')
+          cell.style.height = (y == height-1 && y%5 == 0 ? '26px' : (y == height-1 ? '23px' : (y%5 == 0 ? '24px' : (y%5 == 4 ? '20px' : '21px'))))
+        }
+        for (var x = 0; x < width; x++) {
+          var cell = row.insertCell()
+          cell.className = 'inside'
+          cell.style.borderTop = (y%5 == 0 ? '3px solid black' : '')
+          cell.style.borderBottom = (y == height-1 ? '3px solid black' : (y%5 == 4 ? '' : '1px solid black'))
+          cell.style.borderLeft = (x%5 == 0 ? '3px solid black' : '')
+          cell.style.borderRight = (x == width-1 ? '3px solid black' : (x%5 == 4 ? '' : '1px solid black'))
+        }
+      }
+
+      document.getElementById('grid_div').innerHTML = ''
+      document.getElementById('grid_div').appendChild(tbl)
+
+      document.getElementById('status').style.color = ''
+      document.getElementById('status').innerHTML = 'Enter the numbers and click "Solve"!'
+    }
+
+    function solve_wrapper() {
+      var tbl = document.getElementById('grid')
+      if (tbl != null) {
+        unselect_cell()
+
+        document.getElementById('status').style.color = ''
+        document.getElementById('status').innerHTML = 'Computing...'
+
+        var height = tbl.grid_height
+        var width = tbl.grid_width
 
         var hor_blocks = Array()
-        for (var y = 1; y <= height; y++) {
-          hor_blocks.push(tbl.rows[y].cells[0].innerHTML.split(' ').map(z=>+z))
+        for (var y = 0; y < height; y++) {
+          var block = Array()
+          for (var x = 0; x < tbl.left_columns; x++) {
+            var lbl = +tbl.rows[1 + tbl.top_rows + y].cells[(y == 0 ? 1 : 0) + x].innerHTML
+            if (lbl != 0) block.push(lbl)
+          }
+          hor_blocks.push(block)
         }
 
         var ver_blocks = Array()
-        for (var x = 1; x <= width; x++) {
-          ver_blocks.push(tbl.rows[0].cells[x].innerHTML.split('\n').map(z=>+z))
+        for (var x = 0; x < width; x++) {
+          var block = Array()
+          for (var y = 0; y < tbl.top_rows; y++) {
+            var lbl = +tbl.rows[1+y].cells[1 + tbl.left_columns + x].innerHTML
+            if (lbl != 0) block.push(lbl)
+          }
+          ver_blocks.push(block)
         }
 
         try {
@@ -73,97 +272,37 @@
           return
         }
 
-        for (const [i,row] of res.entries()) {
-          for (const [j,c] of row.entries()) {
-            if (c == 1) tbl.rows[i+1].cells[j+1].style.background = 'gray'
+        for (const [y,row] of res.entries()) {
+          for (const [x,c] of row.entries()) {
+            console.log((y == 0 ? 1 : 0) + tbl.left_columns + x)
+            if (c == 1) tbl.rows[1 + tbl.top_rows + y].cells[(y == 0 ? 1 : 0) + tbl.left_columns + x].style.background = 'gray'
           }
         }
 
         document.getElementById('status').style.color = 'green'
         document.getElementById('status').innerHTML = 'Found the solution!'
       }
-
-      function process_input(x,y) {
-        var tbl = document.getElementById('grid').firstChild
-        var cell = tbl.rows[y].cells[x]
-        var nums = cell.firstChild.value
-        cell.innerHTML = nums
-        if (x == 0) {
-          cell.setAttribute('onclick', 'input_row(' + y + ')')
-        } else {
-          cell.setAttribute('onclick', 'input_column(' + x + ')')
-        }
-      }
-
-      function input_row(y) {
-        var tbl = document.getElementById('grid').firstChild
-        var cell = tbl.rows[y].cells[0]
-        var nums = cell.innerHTML
-        cell.innerHTML = ''
-        var input = document.createElement('textarea')
-        input.setAttribute('rows', 1)
-        input.setAttribute('cols', 9)
-        input.setAttribute('onblur', 'process_input(0,' + y + ')')
-        input.value = nums
-        cell.removeAttribute('onclick')
-        cell.appendChild(input)
-        input.focus()
-      }
-
-      function input_column(x) {
-        var tbl = document.getElementById('grid').firstChild
-        var cell = tbl.rows[0].cells[x]
-        var nums = cell.innerHTML
-        cell.innerHTML = ''
-        var input = document.createElement('textarea')
-        input.setAttribute('rows', 5)
-        input.setAttribute('cols', 1)
-        input.setAttribute('onblur', 'process_input(' + x + ',0)')
-        input.value = nums
-        cell.removeAttribute('onclick')
-        cell.appendChild(input)
-        input.focus()
-      }
-
-      function generate_grid() {
-        var height = parseInt(document.getElementById('height').value)
-        var width = parseInt(document.getElementById('width').value)
-
-        var tbl = document.createElement('table')
-        for (var y = 0; y < height+1; y++) {
-          var row = tbl.insertRow()
-          for (var x = 0; x < width+1; x++) {
-            var cell = row.insertCell()
-            if (x == 0 && y > 0) {
-              cell.classList.add('active')
-              cell.setAttribute('onclick', 'input_row(' + y + ')')
-            } else if (y == 0 && x > 0) {
-              cell.classList.add('active')
-              cell.setAttribute('onclick', 'input_column(' + x + ')')
-            }
-          }
-        }
-        document.getElementById('grid').innerHTML = ''
-        document.getElementById('grid').appendChild(tbl)
-        document.getElementById('status').innerHTML = 'Enter the numbers and click "Solve"!'
-        document.getElementById('status').style.color = ''
-      }
-    </script>
-  </head>
-  <body>
-    <center>
-      <h1>Nonogram solver</h1>
-      <p>
-        <input id = 'height' placeholder = 'Height'/>
-        <input id = 'width' placeholder = 'Width'/>
-        <button onclick = 'generate_grid()'>Generate grid</button>
-        <button onclick = 'solve_wrapper()'>Solve</button>
-      </p>
-      <hr/>
-      <div id = 'grid'>
-        <p><i>Enter the dimensions and press "Generate grid"!</i></p>
-      </div>
-      <div id = 'status'></div>
-    </center>
-  </body>
+    }
+  </script>
+</head>
+<body>
+  <center>
+    <h1>Nonogram Solver</h1>
+    <p>
+      <input id = 'height' placeholder = 'Height'/>
+      <input id = 'width' placeholder = 'Width'/>
+      <button onclick = 'generate_grid()'>Generate grid</button>
+      <button onclick = 'solve_wrapper()'>Solve</button>
+    </p>
+    <hr/>
+    <div id = 'grid_div'>
+      <p><i>Enter the dimensions and press "Generate grid"!</i></p>
+    </div>
+    <div id = 'status'></div>
+  </center>
+</body>
+<script>
+  window.addEventListener('keydown', keydown)
+  window.addEventListener('click', click)
+</script>
 </html>
