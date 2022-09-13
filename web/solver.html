@@ -134,6 +134,7 @@
         tbl.selected_column = undefined
         tbl.selected_row = undefined
       }
+      update_pattern()
     }
 
     function select_cell(y,x) {
@@ -159,15 +160,14 @@
       }
     }
 
-    function generate_grid() {
-      var height = parseInt(document.getElementById('height').value)
-      var width = parseInt(document.getElementById('width').value)
-
+    function generate_grid(height = null, width = null, top_rows = null, left_columns = null) {
       var tbl = document.createElement('table')
       tbl.id = 'grid'
 
-      tbl.top_rows = Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4))
-      tbl.left_columns = Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4))
+      height = (height != null ? height : parseInt(document.getElementById('height').value))
+      width = (width != null ? width : parseInt(document.getElementById('width').value))
+      tbl.top_rows = (top_rows != null ? top_rows : Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4)))
+      tbl.left_columns = (left_columns != null ? left_columns : Math.min(Math.floor((height+1)/2), 3 + Math.floor(height/4)))
       tbl.grid_width = width
       tbl.grid_height = height
 
@@ -231,6 +231,8 @@
 
       document.getElementById('status').style.color = ''
       document.getElementById('status').innerHTML = 'Enter the numbers and click "Solve"!'
+
+      return tbl
     }
 
     function solve_wrapper() {
@@ -274,7 +276,6 @@
 
         for (const [y,row] of res.entries()) {
           for (const [x,c] of row.entries()) {
-            console.log((y == 0 ? 1 : 0) + tbl.left_columns + x)
             if (c == 1) tbl.rows[1 + tbl.top_rows + y].cells[(y == 0 ? 1 : 0) + tbl.left_columns + x].style.background = 'gray'
           }
         }
@@ -283,22 +284,111 @@
         document.getElementById('status').innerHTML = 'Found the solution!'
       }
     }
+
+    function load_pattern() {
+      var pattern = document.getElementById('pattern').value
+      if (pattern == "") {
+        document.getElementById('status').innerHTML = 'Empty pattern specified.'
+        document.getElementById('status').style.color = 'red'
+        return
+      }
+
+      if (pattern.split(':').length != 2) {
+        document.getElementById('status').innerHTML = 'Invalid pattern supplied.'
+        document.getElementById('status').style.color = 'red'
+        return
+      }
+      [size,numbers] = pattern.split(':')
+
+      if (size.split('x').length != 2) {
+        document.getElementById('status').innerHTML = 'Invalid pattern supplied.'
+        document.getElementById('status').style.color = 'red'
+        return
+      }
+      [h,w] = size.split('x').map(x => +x)
+
+      if (numbers.split('/').length != h+w) {
+        document.getElementById('status').innerHTML = 'Invalid pattern supplied.'
+        document.getElementById('status').style.color = 'red'
+        return
+      }
+      var hor_blocks = numbers.split('/').slice(0,h).map(x => x.split(',').map(x => +x))
+      var ver_blocks = numbers.split('/').slice(h,h+w).map(x => x.split(',').map(x => +x))
+
+      var max_hor_length = Math.max(...hor_blocks.map(x => x.length))
+      var max_ver_length = Math.max(...ver_blocks.map(x => x.length))
+
+      var tbl = generate_grid(h, w, max_ver_length, max_hor_length)
+
+      for (const [j,blk] of hor_blocks.entries()) {
+        for (const [k,num] of blk.entries()) {
+          tbl.rows[tbl.top_rows + j + 1].cells[tbl.left_columns - blk.length + k + (j == 0 ? 1 : 0)].innerHTML = num.toString()
+        }
+      }
+
+      for (const [j,blk] of ver_blocks.entries()) {
+        for (const [k,num] of blk.entries()) {
+          tbl.rows[tbl.top_rows - blk.length + k + 1].cells[tbl.left_columns + j + 1].innerHTML = num.toString()
+        }
+      }
+
+      update_pattern()
+
+      document.getElementById('status').innerHTML = 'Pattern loaded, solve the puzzle by pressing "Solve"!'
+      document.getElementById('status').style.color = 'black'
+    }
+
+    function update_pattern() {
+      var tbl = document.getElementById('grid')
+      if (tbl != null) {
+        var h = tbl.rows.length - tbl.top_rows - 1
+        var w = tbl.rows[1].cells.length - tbl.left_columns - 1
+        var res = h + 'x' + w + ':'
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < tbl.left_columns; x++) {
+            var s = tbl.rows[tbl.top_rows + y + 1].cells[x + (y == 0 ? 1 : 0)].innerHTML
+            if (s != "") {
+              if (res.slice(-1) != '/' && res.slice(-1) != ':') {res += ','}
+              res += s
+            }
+          }
+          res += '/'
+        }
+        for (var x = 0; x < w; x++) {
+          for (var y = 0; y < tbl.top_rows; y++) {
+            var s = tbl.rows[y + 1].cells[tbl.left_columns + 1 + x].innerHTML
+            if (s != "") {
+              if (res.slice(-1) != '/') {res += ','}
+              res += s
+            }
+          }
+          res += '/'
+        }
+        document.getElementById('pattern').value = res.slice(0,-1)
+      }
+    }
   </script>
 </head>
 <body>
   <center>
     <h1>Nonogram Solver</h1>
     <p>
-      <input id = 'height' placeholder = 'Height'/>
-      <input id = 'width' placeholder = 'Width'/>
-      <button onclick = 'generate_grid()'>Generate grid</button>
-      <button onclick = 'solve_wrapper()'>Solve</button>
+      <p>
+        <i>Enter the dimensions and press "Generate grid"!</i><br/>
+        <input id = 'height' placeholder = 'Height'/>
+        <input id = 'width' placeholder = 'Width'/>
+        <button onclick = 'generate_grid()'>Generate grid</button>
+        </p>
+      <p>
+        <i>Or paste a pattern and press "Load pattern"!</i><br/>
+        <input id = 'pattern' placeholder = 'Pattern' size = "100"/>
+        <button onclick = 'load_pattern()'>Load pattern</button>
+      </p>
     </p>
     <hr/>
-    <div id = 'grid_div'>
-      <p><i>Enter the dimensions and press "Generate grid"!</i></p>
-    </div>
+    <div id = 'grid_div'></div>
     <div id = 'status'></div>
+    <button onclick = 'solve_wrapper()'>Solve</button>
   </center>
 </body>
 <script>
